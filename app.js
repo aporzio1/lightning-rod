@@ -1,7 +1,7 @@
 // ===== Lightning Rod — Ford Telemetry Dashboard =====
 
 // ===== CONFIG =====
-const CLIENT_ID = 'YOUR_CLIENT_ID';
+const CLIENT_ID = 'bdd5bea2-d7ed-4a45-8fdf-23f5866f4dd4';
 const REDIRECT_URI = window.location.origin + window.location.pathname;
 const FORD_AUTH_URL = 'https://login.ford.com/as/authorization.oauth2';
 const FORD_TOKEN_URL = 'https://login.ford.com/as/token.oauth2';

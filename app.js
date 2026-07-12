@@ -119,7 +119,7 @@ function cacheDom() {
     'lat','lon','alt','heading','speed','accel',
     'doors-grid','health-alerts','cell-spread-chart',
     'tire-fl','tire-fr','tire-rl','tire-rr',
-    'last-update','top-alerts','badge-vehicle','badge-tire'
+    'last-update','top-alerts','badge-vehicle','badge-tire','manual-token-input'
   ];
   for (const id of ids) refs[id] = document.getElementById(id);
 }
@@ -152,6 +152,39 @@ function startLogin() {
   url.searchParams.set('scope', 'access');
 
   window.location.href = url.toString();
+}
+
+// Dev/testing bypass — real API, real token, just not acquired through our
+// (currently Ford-side-broken, AADB2C90006) browser login redirect. Accepts
+// either a bare access token string or the full JSON response from a manual
+// token exchange (e.g. Postman). If a refresh_token is present it's persisted
+// normally via saveRefreshToken; if not, the session just ends when the
+// pasted access token expires.
+function useManualToken() {
+  const raw = refs['manual-token-input']?.value.trim();
+  if (!raw) return;
+
+  let access = raw;
+  let refresh = null;
+  let expiresIn = null;
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed.access_token) {
+      access = parsed.access_token;
+      refresh = parsed.refresh_token ?? null;
+      expiresIn = parsed.refresh_token_expires_in ?? null;
+    }
+  } catch {
+    // not JSON — treat the whole input as a bare access token
+  }
+
+  accessToken = access;
+  refreshToken = refresh;
+  if (refresh) saveRefreshToken(refresh, expiresIn);
+
+  showDashboard();
+  refreshData();
 }
 
 function handleCallback() {

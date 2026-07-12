@@ -26,6 +26,13 @@
       <p>View battery health, motor telemetry, tire pressure, and more — the data FordPass hides.</p>
       <button class="btn-primary" onclick="startLogin()">Login with Ford</button>
       <p class="note">No accounts stored. Tokens live in your browser only.</p>
+
+      <details class="manual-token">
+        <summary>Have an access token already? (dev/testing)</summary>
+        <p class="note">Paste a raw access token, or the full JSON response from a manual token exchange (e.g. via Postman) — used as-is against the real API, bypassing the login redirect.</p>
+        <textarea id="manual-token-input" rows="3" placeholder="access_token, or {&quot;access_token&quot;: ..., &quot;refresh_token&quot;: ...}"></textarea>
+        <button class="btn-secondary" onclick="useManualToken()">Use Token</button>
+      </details>
     </div>
   </div>
 

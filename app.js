@@ -201,7 +201,8 @@ function generateState() {
 // this moves off "personal static-hosted dashboard" and the token becomes
 // higher-value (e.g. shared hosting, multiple users, custom domain).
 function saveRefreshToken(token, expiresInSeconds) {
-  const expiresAt = typeof expiresInSeconds === 'number'
+  const hasValidServerExpiry = typeof expiresInSeconds === 'number' && expiresInSeconds > 0;
+  const expiresAt = hasValidServerExpiry
     ? Date.now() + expiresInSeconds * 1000
     : Date.now() + REFRESH_MAX_AGE_MS;
   localStorage.setItem(REFRESH_KEY, JSON.stringify({ token, expiresAt }));

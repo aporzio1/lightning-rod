@@ -64,12 +64,51 @@ function cssVar(name) {
 // ===== INIT — single path =====
 document.addEventListener('DOMContentLoaded', () => {
   cacheDom();
-  if (new URLSearchParams(window.location.search).has('code')) {
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('demo')) {
+    loadDemoData();
+  } else if (params.has('code')) {
     handleCallback();
   } else {
     loadSession();
   }
 });
+
+// ===== DEMO MODE — ?demo=1, bypasses OAuth entirely with mock data =====
+// Ford's FordConnect login wrapper currently rejects its own callback URL
+// (AADB2C90006, confirmed on two separate client_ids — a provisioning gap on
+// Ford's side, not fixable from here), which blocks real login. This lets the
+// rest of the app — layout, rendering, the alert strip, etc. — be exercised
+// without it. Field shapes here are the same best-effort guesses documented
+// in renderDashboard(); this doesn't confirm real API shapes, only that the
+// UI renders correctly given *a* shape roughly like this one.
+function loadDemoData() {
+  showDashboard();
+  setStatus('DEMO MODE — mock data, not a live Ford connection');
+  refs['vin-display'].textContent = 'DEMO-VIN-0000000';
+
+  vehicleData = {
+    telemetry: {
+      data: {
+        battery: {
+          stateOfCharge: 71, estimatedRange: 220, chargeStatus: 'CHARGING_AC',
+          evBatteryTotalVoltage: 398, evBatteryTemperature: 81, evChargingRateKW: 10.8,
+          evBatteryCellMinVoltage: 3.91, evBatteryCellMaxVoltage: 3.95,
+          evBatteryCellMinTemp: 77, evBatteryCellMaxTemp: 83
+        },
+        tires: { frontLeft: { pressure: 42 }, frontRight: { pressure: 30 }, rearLeft: { pressure: 43 }, rearRight: { pressure: 42 } },
+        gps: { latitude: 42.33, longitude: -83.04, altitude: 610, heading: 90, speed: 12, acceleration: { x: 0.1, y: 0, z: 1 } },
+        doors: { driverFrontDoor: 'OPEN', passengerFrontDoor: 'LOCKED', driverRearDoor: 'CLOSED', passengerRearDoor: 'CLOSED', liftgate: 'CLOSED', hood: 'CLOSED', fuelDoor: 'CLOSED' }
+      }
+    },
+    health: { data: { alerts: [{ severity: 'WARNING', description: 'Tire pressure low — front right' }] } },
+    wallbox: null, departureTimes: null, chargeSchedules: null,
+    vin: 'DEMO-VIN-0000000',
+    fetchOk: { telemetry: true, health: true, wallbox: false, departureTimes: false, chargeSchedules: false }
+  };
+
+  renderDashboard();
+}
 
 function cacheDom() {
   const ids = [
@@ -260,6 +299,11 @@ async function refreshAccessToken() {
 
 // ===== DATA FETCHING =====
 async function refreshData() {
+  if (new URLSearchParams(window.location.search).has('demo')) {
+    loadDemoData(); // re-render mock data instead of hitting the real API
+    return;
+  }
+
   setStatus('Updating...');
   toggleLoading(true);
 

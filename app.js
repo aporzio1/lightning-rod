@@ -5,7 +5,7 @@
 // collection (Azure AD B2C auth, /fcon-query/v1/* data API) — the previous
 // login.ford.com / /vehicles/v1/vehicles/{vin}/* endpoints this app used
 // before were invented and don't exist in the real API.
-const CLIENT_ID = 'bdd5bea2-d7ed-4a45-8fdf-23f5866f4dd4';
+const CLIENT_ID = '2d740d34-d8ab-4ce6-835d-bc8653b02ba2';
 const REDIRECT_URI = window.location.origin + window.location.pathname;
 // The raw Azure B2C authorize endpoint (api.vehicle.ford.com/.../oauth2/v2.0/authorize)
 // is NOT the real entry point — hitting it directly skips Ford's login UI

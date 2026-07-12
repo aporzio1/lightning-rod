@@ -45,7 +45,7 @@ function cacheDom() {
 }
 
 function loadSession() {
-  refreshToken = sessionStorage.getItem(REFRESH_KEY);
+  refreshToken = localStorage.getItem(REFRESH_KEY);
   if (refreshToken) {
     showDashboard();
     refreshData();
@@ -126,7 +126,7 @@ async function exchangeCodeForToken(code, codeVerifier) {
     const data = await resp.json();
     accessToken = data.access_token;
     refreshToken = data.refresh_token;
-    sessionStorage.setItem(REFRESH_KEY, refreshToken);
+    localStorage.setItem(REFRESH_KEY, refreshToken);
     history.replaceState(null, '', window.location.pathname);
     showDashboard();
     refreshData();
@@ -161,7 +161,7 @@ function generateState() {
 function clearTokens() {
   accessToken = null;
   refreshToken = null;
-  sessionStorage.removeItem(REFRESH_KEY);
+  localStorage.removeItem(REFRESH_KEY);
 }
 
 // ===== API — single-flight refresh, one-deep retry =====
@@ -199,7 +199,7 @@ async function refreshAccessToken() {
       const data = await resp.json();
       accessToken = data.access_token;
       refreshToken = data.refresh_token;
-      sessionStorage.setItem(REFRESH_KEY, refreshToken);
+      localStorage.setItem(REFRESH_KEY, refreshToken);
     } catch (err) {
       logout();
       throw err;
@@ -261,12 +261,6 @@ function fmt(val, digits, unit) {
   if (typeof val !== 'number' || isNaN(val)) return '--';
   return `${val.toFixed(digits)}${unit ? ' ' + unit : ''}`;
 }
-
-const h = str => {
-  const d = document.createElement('span');
-  d.textContent = str;
-  return d.innerHTML;  // safe — textContent always escapes
-};
 
 function setEl(id, text) {
   if (refs[id]) refs[id].textContent = text;

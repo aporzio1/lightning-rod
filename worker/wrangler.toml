@@ -3,7 +3,8 @@ main = "index.js"
 compatibility_date = "2026-07-01"
 
 [vars]
-ALLOWED_ORIGIN = "https://aporzio1.github.io"
+# Comma-separated — both allowed during the github.io -> cellblock.cc migration.
+ALLOWED_ORIGIN = "https://aporzio1.github.io,https://cellblock.cc"
 
 # Secrets (set once, stored by Cloudflare, never in this repo):
 #   npx wrangler secret put CLIENT_ID

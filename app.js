@@ -1,4 +1,4 @@
-// ===== Lightning Rod — Ford Telemetry Dashboard =====
+// ===== CellBlock — Ford EV Telemetry Dashboard =====
 
 // ===== CONFIG =====
 // Endpoints below are confirmed against the real FordConnect-2.0-Postman

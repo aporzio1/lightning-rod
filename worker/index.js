@@ -30,6 +30,20 @@ function corsHeaders(env, request) {
   };
 }
 
+// Server-side origin enforcement: reject requests from non-allowed origins
+// (not just CORS headers — actual 403 for curl/bots too).
+// Browser-initiated fetches always send Origin; curl/CLI clients won't have one,
+// which is fine since only the CellBlock frontend should hit these endpoints.
+function enforceOrigin(env, request) {
+  const allowed = (env.ALLOWED_ORIGIN || '').split(',').map(o => o.trim()).filter(Boolean);
+  if (allowed.length === 0 || allowed.includes('*')) return null; // wide open
+  const origin = request.headers.get('origin');
+  if (!origin || !allowed.includes(origin)) {
+    return { error: 'Forbidden: origin not allowed' };
+  }
+  return null;
+}
+
 function json(env, request, status, obj) {
   return new Response(JSON.stringify(obj), {
     status,
@@ -44,10 +58,11 @@ async function exchangeToken(env, request, params) {
     body: new URLSearchParams(params)
   });
   const body = await resp.text();
-  return new Response(body, {
-    status: resp.status,
-    headers: { 'Content-Type': 'application/json', ...corsHeaders(env, request) }
-  });
+  const headers = { 'Content-Type': 'application/json', ...corsHeaders(env, request) };
+  // Pass through Retry-After if Ford rate-limited us
+  const retryAfter = resp.headers.get('Retry-After');
+  if (retryAfter) headers['Retry-After'] = retryAfter;
+  return new Response(body, { status: resp.status, headers });
 }
 
 export default {
@@ -64,6 +79,12 @@ export default {
     const scope = `${env.CLIENT_ID} offline_access openid`;
 
     try {
+      // Enforce origin on auth/token/data endpoints (vehicle-image is proxied separately)
+      if (url.pathname !== DATA_PREFIX + 'vehicle-image') {
+        const blocked = enforceOrigin(env, request);
+        if (blocked) return json(env, request, 403, blocked);
+      }
+
       if (request.method === 'POST' && url.pathname === '/api/token') {
         const { code, redirect_uri } = await request.json().catch(() => ({}));
         if (!code || !redirect_uri) return json(env, request, 400, { error: 'code and redirect_uri are required' });
@@ -97,7 +118,6 @@ export default {
         const vin = url.searchParams.get('vin');
         if (!vin) return json(env, request, 400, { error: 'vin parameter is required' });
 
-        // VIN needs brackets in the builder URL: Vin[1FT...] not Vin1FT...
         const imageUrl = FORD_BUILDER_URL.replace('[VIN]', '[' + vin + ']');
         const imageResp = await fetch(imageUrl, {
           headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CellBlock/1.0)' }
@@ -110,7 +130,6 @@ export default {
           return new Response(imageResp.body, { headers });
         }
 
-        // Fallback: try Ford's fcon-query API for the image URL
         const auth = request.headers.get('authorization');
         const fordResp = await fetch(`${FORD_DATA_BASE}/vehicle-image?vin=${vin}`, {
           headers: { 'Authorization': auth || '', 'Accept': 'application/json' }
@@ -142,13 +161,14 @@ export default {
           headers: { 'Authorization': auth, 'Accept': 'application/json' }
         });
         const body = await fordResp.text();
-        return new Response(body, {
-          status: fordResp.status,
-          headers: {
-            'Content-Type': fordResp.headers.get('content-type') || 'application/json',
-            ...corsHeaders(env, request)
-          }
-        });
+        const headers = {
+          'Content-Type': fordResp.headers.get('content-type') || 'application/json',
+          ...corsHeaders(env, request)
+        };
+        // Pass through Retry-After if Ford rate-limited us
+        const retryAfter = fordResp.headers.get('Retry-After');
+        if (retryAfter) headers['Retry-After'] = retryAfter;
+        return new Response(body, { status: fordResp.status, headers });
       }
 
       return json(env, request, 404, { error: 'Not found' });

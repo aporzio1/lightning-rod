@@ -13,7 +13,8 @@ const REDIRECT_URI = window.location.origin + window.location.pathname;
 // consumer common/login wrapper (both of which we tried first, based on
 // third-party sources, and both of which were wrong for FordConnect 2.0).
 const FORD_AUTHORIZE_URL = 'https://api.vehicle.ford.com/fcon-public/v1/auth/init';
-// Backend proxy — see server/. Handles two things a browser can't do itself:
+// Backend proxy — Cloudflare Worker at proxy.cellblock.cc.
+// Handles two things a browser can't do itself:
 // (1) FordConnect's token endpoint requires a client_secret, which can never
 // live in browser JS; (2) api.vehicle.ford.com sends no CORS headers at all,
 // confirmed live — a direct browser fetch to its data endpoints fails
@@ -75,6 +76,11 @@ const mToFt = m => typeof m === 'number' ? m * 3.28084 : undefined;
 document.addEventListener('DOMContentLoaded', () => {
   cacheDom();
   const params = new URLSearchParams(window.location.search);
+  // Gate dev-only features behind ?dev=1
+  if (!params.has('dev')) {
+    const manual = document.getElementById('manual-token-section');
+    if (manual) manual.style.display = 'none';
+  }
   if (params.has('demo')) {
     loadDemoData();
   } else if (params.has('code')) {
@@ -495,7 +501,11 @@ async function refreshData() {
 
     renderDashboard();
     loadVehicleImage(vinCache); // fire-and-forget, shows vehicle photo
-    setStatus('Updated just now');
+    // Status: show partial failures honestly
+    const { telemetry: tOk, health: hOk } = vehicleData.fetchOk;
+    if (!tOk && !hOk) setStatus('Data unavailable — rate limited?');
+    else if (!tOk) setStatus('Telemetry unavailable — partial data');
+    else setStatus('Updated just now');
     setEl('last-update', `Last updated: ${new Date().toLocaleTimeString()}`);
   } catch (err) {
     console.error(err);
@@ -506,9 +516,9 @@ async function refreshData() {
   }
 }
 
-// Best-effort VIN extraction — the Postman collection has no saved example
-// response for /garage, so this shape is a guess at common REST list
-// conventions. Verify against a real response and adjust if it's wrong.
+// VIN extraction — /garage returns a flat object with `vin` directly on it
+// (confirmed live). The multi-vehicle fallbacks are kept defensively in case
+// a future account has more than one vehicle.
 function firstVin(garage) {
   // Confirmed live: a single-vehicle garage returns a flat object with `vin`
   // directly on it (no array wrapper at all) — not the {vehicles:[...]} or
@@ -700,7 +710,7 @@ function renderDashboard() {
   setEl('alt', position.alt != null ? `${Math.round(mToFt(position.alt))} ft` : '-- ft');
   setEl('heading', heading != null ? `${Math.round(heading)}°` : '--°');
   setEl('speed', speedKmh != null ? `${Math.round(kmToMi(speedKmh))} mph` : '-- mph');
-  setEl('accel', acc ? `${acc.x.toFixed(2)}/${acc.y.toFixed(2)}/${acc.z.toFixed(2)} g` : '--/--/-- g');
+  setEl('accel', acc ? `${(acc.x ?? 0).toFixed(2)}/${(acc.y ?? 0).toFixed(2)}/${(acc.z ?? 0).toFixed(2)} g` : '--/--/-- g');
 
   // Sub-renderers (all DOM-safe)
   const doors = normalizeDoors(metrics.doorStatus); // bare array, see tirePressure note above
@@ -746,7 +756,7 @@ function setTire(id, val) {
   const el = refs[id];
   if (!el) return null;
 
-  el.querySelector('.tire-val').textContent = fmt(val, 0, 'PSI');
+  el.querySelector('.tire-val').textContent = typeof val === 'number' ? `${Math.round(val)} PSI` : '-- PSI';
   el.classList.remove('tire-warn', 'tire-danger');
 
   if (typeof val !== 'number') return null;

@@ -15,6 +15,7 @@
 
 const FORD_TOKEN_URL = 'https://api.vehicle.ford.com/dah2vb2cprod.onmicrosoft.com/oauth2/v2.0/token?p=B2C_1A_FCON_AUTHORIZE';
 const FORD_DATA_BASE = 'https://api.vehicle.ford.com/fcon-query/v1';
+const FORD_BUILDER_URL = 'https://build.ford.com/dig/direct/HD-FULL/Vin[VIN]/EXT/4/vehicle.png';
 const DATA_PREFIX = '/api/data/';
 
 function corsHeaders(env, request) {
@@ -91,13 +92,53 @@ export default {
         });
       }
 
+      // Vehicle image — fetch from Ford's builder directly and cache at edge
+      if (request.method === 'GET' && url.pathname === DATA_PREFIX + 'vehicle-image') {
+        const vin = url.searchParams.get('vin');
+        if (!vin) return json(env, request, 400, { error: 'vin parameter is required' });
+
+        const imageUrl = FORD_BUILDER_URL.replace('[VIN]', vin);
+        const imageResp = await fetch(imageUrl, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CellBlock/1.0)' }
+        });
+
+        if (!imageResp.ok) {
+          // Fallback: try Ford's fcon-query API for the image URL
+          const auth = request.headers.get('authorization');
+          const fordResp = await fetch(`${FORD_DATA_BASE}/vehicle-image?vin=${vin}`, {
+            headers: { 'Authorization': auth || '', 'Accept': 'application/json' }
+          });
+          if (fordResp.ok) {
+            const data = await fordResp.json();
+            const fallbackUrl = data.vehicleImage;
+            if (fallbackUrl) {
+              const fallbackImg = await fetch(fallbackUrl, {
+                headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CellBlock/1.0)' }
+              });
+              if (fallbackImg.ok) {
+                const headers = new Headers(fallbackImg.headers);
+                headers.set('Cache-Control', 'public, max-age=86400'); // 24h edge cache
+                headers.set('Access-Control-Allow-Origin', '*');
+                return new Response(fallbackImg.body, { headers });
+              }
+            }
+          }
+          return json(env, request, imageResp.status === 429 ? 429 : 502, { error: 'Image unavailable' });
+        }
+
+        const headers = new Headers(imageResp.headers);
+        headers.set('Cache-Control', 'public, max-age=86400'); // 24h edge cache
+        headers.set('Access-Control-Allow-Origin', '*');
+        return new Response(imageResp.body, { headers });
+      }
+
       if (request.method === 'GET' && url.pathname.startsWith(DATA_PREFIX)) {
         const suffix = url.pathname.slice(DATA_PREFIX.length) + url.search;
         const auth = request.headers.get('authorization');
-        if (!auth) return json(env, 401, { error: 'Authorization header is required' });
+        if (!auth) return json(env, request, 401, { error: 'Authorization header is required' });
 
         const fordResp = await fetch(`${FORD_DATA_BASE}/${suffix}`, {
-          headers: { Authorization: auth, 'Accept': 'application/json' }
+          headers: { 'Authorization': auth, 'Accept': 'application/json' }
         });
         const body = await fordResp.text();
         return new Response(body, {

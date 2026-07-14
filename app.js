@@ -955,40 +955,25 @@ async function loadVehicleImage(vin) {
   const img = refs['vehicle-image'];
   if (!card || !img || !vin) return;
 
-  // Check cache first — image URL is VIN-based, doesn't change
-  const cachedUrl = getFromCache('vehicleImageUrl');
-  if (cachedUrl) {
-    img.src = cachedUrl;
-    card.style.display = '';
-    return;
-  }
-
   try {
     const resp = await fetch(`${API_BASE}/vehicle-image?vin=${vin}`, {
-      headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'image/jpeg,image/png,image/webp,application/json,*/*' }
+      headers: { 'Authorization': `Bearer ${accessToken}` }
     });
     if (!resp.ok) throw new Error(`Image fetch failed: ${resp.status}`);
-    const contentType = resp.headers.get('content-type') || '';
-
-    if (contentType.includes('json') || contentType === '') {
-      // Ford returns JSON with an image URL, not the image itself
-      const data = await resp.json();
-      const url = data.vehicleImage || data.imageUrl || data.url;
-      if (!url) throw new Error('No image URL in response');
-      saveToCache('vehicleImageUrl', url); // Cache for 5min so we don't re-fetch
-      img.src = url;
-      card.style.display = '';
-    } else {
-      // Direct image blob (unlikely but handle it)
-      const blob = await resp.blob();
-      const url = URL.createObjectURL(blob);
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    if (blob.size > 1024) { // Only use if it's a real image, not an error
       img.src = url;
       card.style.display = '';
       img.onload = () => { if (img._prevUrl) URL.revokeObjectURL(img._prevUrl); img._prevUrl = url; };
+      return;
     }
+    throw new Error('Empty image response');
   } catch (err) {
     console.warn('[vehicle-image]', err.message || err);
-    // Keep card present (hidden) so layout doesn't shift on refresh
+    // Fallback to local generic image
+    img.src = 'images/lightning.svg';
+    card.style.display = '';
   }
 }
 

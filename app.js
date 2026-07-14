@@ -537,6 +537,15 @@ function renderDashboard() {
 
   setBadge('badge-vehicle', openDoorCount + activeAlertCount);
   renderTopAlerts(doors, health, tireIssues);
+
+  // Wallbox / charger status
+  renderWallbox(wallbox);
+
+  // Charge schedules
+  renderChargeSchedules(chargeSchedules);
+
+  // Departure times
+  renderDepartureTimes(departureTimes);
 }
 
 // Real doorStatus array entries repeat the same physical door under multiple
@@ -724,6 +733,117 @@ function renderAlerts(healthData) {
     container.appendChild(div);
   }
   return activeCount;
+}
+
+// ===== WALLBOX / CHARGER RENDERER =====
+function renderWallbox(data) {
+  const container = refs['wallbox-info'];
+  if (!container) return;
+  container.replaceChildren();
+
+  if (!data) {
+    container.innerHTML = '<p class="unavailable-note">No wallbox data available.</p>';
+    return;
+  }
+
+  // Expected shape: { wallbox: [{ wallboxId, status, ... }] } or flat object
+  const wb = Array.isArray(data.wallbox) ? data.wallbox[0] : data;
+  if (!wb) { container.innerHTML = '<p class="unavailable-note">No wallbox data available.</p>'; return; }
+
+  const fields = [
+    ['Status', wb.status ?? wb.Status ?? '--'],
+    ['Connector Type', wb.connectorType ?? wb.ConnectorType ?? '--'],
+    ['Max Current (A)', wb.maxCurrent ?? wb.MaxCurrent != null ? wb.MaxCurrent : '--'],
+    ['Power (kW)', wb.power ?? wb.Power != null ? parseFloat(wb.Power).toFixed(1) : '--'],
+    ['Voltage (V)', wb.voltage ?? wb.Voltage ?? '--'],
+    ['Location', wb.location ?? wb.Location ?? '--'],
+    ['Last Updated', wb.lastUpdatedTime ?? wb.LastUpdatedTime ?? '--'],
+  ];
+
+  for (const [label, value] of fields) {
+    const row = document.createElement('div');
+    row.className = 'info-row';
+    const lbl = document.createElement('span');
+    lbl.className = 'info-label';
+    lbl.textContent = label;
+    const val = document.createElement('span');
+    val.className = 'info-value';
+    val.textContent = String(value);
+    row.appendChild(lbl);
+    row.appendChild(val);
+    container.appendChild(row);
+  }
+}
+
+// ===== CHARGE SCHEDULES RENDERER =====
+function renderChargeSchedules(data) {
+  const container = refs['charge-schedules-list'];
+  if (!container) return;
+  container.replaceChildren();
+
+  if (!data) {
+    container.innerHTML = '<p class="unavailable-note">No charge schedule data available.</p>';
+    return;
+  }
+
+  const schedules = Array.isArray(data.chargeSchedule) ? data.chargeSchedule :
+                    Array.isArray(data.ChargeSchedule) ? data.ChargeSchedule :
+                    Array.isArray(data) ? data : [];
+
+  if (!schedules.length) {
+    container.innerHTML = '<p class="unavailable-note">No active charge schedules.</p>';
+    return;
+  }
+
+  for (const sched of schedules.slice(0, 5)) {
+    const div = document.createElement('div');
+    div.className = 'info-row';
+
+    const enabled = sched.enabled ?? sched.Enabled ?? sched.isEnabled ?? sched.IsEnabled;
+    const dayOfWeek = sched.dayOfWeek ?? sched.DayOfWeek ?? '--';
+    const startTime = sched.startTime ?? sched.StartTime ?? '--';
+    const endTime = sched.endTime ?? sched.EndTime ?? '--';
+    const chargeLimit = sched.chargeLimitPercentage ?? sched.chargeLimitPercent ?? sched.ChargeLimitPercentage ?? '--';
+
+    div.innerHTML = `<span class="info-label">${dayOfWeek}</span>
+      <span class="info-value">${startTime} – ${endTime}${chargeLimit != null ? ' · Limit: ' + chargeLimit + '%' : ''}${enabled !== undefined ? ' · ' + (enabled ? 'Enabled' : 'Disabled') : ''}</span>`;
+    container.appendChild(div);
+  }
+}
+
+// ===== DEPARTURE TIMES RENDERER =====
+function renderDepartureTimes(data) {
+  const container = refs['departure-times-list'];
+  if (!container) return;
+  container.replaceChildren();
+
+  if (!data) {
+    container.innerHTML = '<p class="unavailable-note">No departure time data available.</p>';
+    return;
+  }
+
+  const times = Array.isArray(data.departureTime) ? data.departureTime :
+                Array.isArray(data.DepartureTime) ? data.DepartureTime :
+                Array.isArray(data) ? data : [];
+
+  if (!times.length) {
+    container.innerHTML = '<p class="unavailable-note">No active departure times.</p>';
+    return;
+  }
+
+  for (const dt of times.slice(0, 5)) {
+    const div = document.createElement('div');
+    div.className = 'info-row';
+
+    const enabled = dt.enabled ?? dt.Enabled ?? dt.isEnabled ?? dt.IsEnabled;
+    const dayOfWeek = dt.dayOfWeek ?? dt.DayOfWeek ?? '--';
+    const time = dt.time ?? dt.Time ?? '--';
+    const ac = dt.acPreconditioningEnabled ?? dt.ACPreconditioningEnabled ?? dt.acPreconditioning ?? dt.ACPreconditioning;
+
+    div.innerHTML = `<span class="info-label">${dayOfWeek}</span>
+      <span class="info-value">${time}${ac !== undefined ? ' · AC: ' + (ac ? 'On' : 'Off') : ''}${enabled !== undefined ? ' · ' + (enabled ? 'Enabled' : 'Disabled') : ''}</span>`;
+    container.appendChild(div);
+  }
 }
 
 // ===== UI HELPERS =====

@@ -170,6 +170,39 @@
     </div>
 
     <div class="collapsible-section">
+      <button class="collapse-toggle" aria-expanded="false" aria-controls="content-wallbox" onclick="toggleSection(this)">
+        <span class="toggle-label">Wallbox / Charger</span>
+        <span class="badge-count"></span>
+        <span class="toggle-arrow" aria-hidden="true">▾</span>
+      </button>
+      <div class="collapse-content" id="content-wallbox">
+        <div class="info-grid" id="wallbox-info"></div>
+      </div>
+    </div>
+
+    <div class="collapsible-section">
+      <button class="collapse-toggle" aria-expanded="false" aria-controls="content-chargeschedule" onclick="toggleSection(this)">
+        <span class="toggle-label">Charge Schedules</span>
+        <span class="badge-count"></span>
+        <span class="toggle-arrow" aria-hidden="true">▾</span>
+      </button>
+      <div class="collapse-content" id="content-chargeschedule">
+        <div id="charge-schedules-list"></div>
+      </div>
+    </div>
+
+    <div class="collapsible-section">
+      <button class="collapse-toggle" aria-expanded="false" aria-controls="content-departure" onclick="toggleSection(this)">
+        <span class="toggle-label">Departure Times</span>
+        <span class="badge-count"></span>
+        <span class="toggle-arrow" aria-hidden="true">▾</span>
+      </button>
+      <div class="collapse-content" id="content-departure">
+        <div id="departure-times-list"></div>
+      </div>
+    </div>
+
+    <div class="collapsible-section">
       <button class="collapse-toggle" aria-expanded="false" aria-controls="content-charging" onclick="toggleSection(this)">
         <span class="toggle-label">Charging History</span>
         <span class="badge-count"></span>

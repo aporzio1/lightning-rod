@@ -657,13 +657,12 @@ button:focus-visible,
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 160px;
-  max-width: 320px;
+  min-height: 200px;
   overflow: hidden;
 }
 .vehicle-photo {
-  max-width: 100%;
-  max-height: 180px;
+  width: 100%;
+  max-height: 200px;
   object-fit: contain;
   border-radius: 8px;
 }

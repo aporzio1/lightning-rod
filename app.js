@@ -125,7 +125,7 @@ function loadDemoData() {
         ]
       }
     },
-    health: { alerts: [{ severity: 'WARNING', description: 'Tire pressure low — front right' }] },
+    health: { VehicleAlertList: [{ Vin: 'DEMO-VIN-0000000', ActiveAlerts: [{ Severity: 'WARNING', AlertDescription: 'Tire pressure low — front right' }] }] },
     wallbox: null, departureTimes: null, chargeSchedules: null,
     vin: 'DEMO-VIN-0000000',
     fetchOk: { telemetry: true, health: true, wallbox: false, departureTimes: false, chargeSchedules: false }
@@ -597,13 +597,11 @@ function renderTopAlerts(doors, healthData, tireIssues) {
   strip.replaceChildren();
 
   const items = [];
-  const alerts = healthData?.data?.alerts ?? healthData?.alerts;
+  const alerts = getActiveAlerts(healthData).map(normalizeAlert);
 
-  if (alerts?.length) {
-    for (const alert of alerts) {
-      if (alert.severity === 'CRITICAL' || alert.severity === 'WARNING') {
-        items.push({ severity: alert.severity, text: alert.description || alert.code || 'Vehicle alert' });
-      }
+  for (const alert of alerts) {
+    if (alert.severity === 'CRITICAL' || alert.severity === 'WARNING') {
+      items.push({ severity: alert.severity, text: alert.text });
     }
   }
 
@@ -662,12 +660,35 @@ function renderDoors(doors) {
 }
 
 // Returns the number of CRITICAL/WARNING alerts, for the Vehicle Status badge.
+// Confirmed live: /vehicle-health/alerts returns
+// { VehicleAlertList: [{ Vin, ActiveAlerts: [...], StatusCode, StatusDesc }] }
+// — one entry per vehicle, not the {alerts:[...]} shape originally guessed.
+// This account's ActiveAlerts was empty (StatusDesc "No Data"), so the shape
+// of an actual populated alert is still unconfirmed — normalizeAlert() below
+// guesses PascalCase field names matching the surrounding response
+// (ActiveAlerts/EventTimeStamp/StatusCode/StatusDesc/Vin all use PascalCase)
+// with defensive fallbacks to the earlier lowercase guess. Correct once a
+// real populated alert is seen.
+function getActiveAlerts(healthData) {
+  const list = healthData?.VehicleAlertList;
+  if (!Array.isArray(list) || !list.length) return [];
+  const entry = list.find(v => v.Vin === vinCache) ?? list[0];
+  return Array.isArray(entry?.ActiveAlerts) ? entry.ActiveAlerts : [];
+}
+
+function normalizeAlert(alert) {
+  const severity = (alert.Severity ?? alert.severity ?? 'INFO').toUpperCase();
+  const text = alert.AlertDescription ?? alert.Description ?? alert.description
+    ?? alert.AlertName ?? alert.Name ?? alert.Code ?? alert.code ?? 'Vehicle alert';
+  return { severity, text };
+}
+
 function renderAlerts(healthData) {
   const container = refs['health-alerts'];
   container.replaceChildren();
-  const data = { alerts: healthData?.data?.alerts ?? healthData?.alerts };
+  const alerts = getActiveAlerts(healthData).map(normalizeAlert);
 
-  if (!data?.alerts?.length) {
+  if (!alerts.length) {
     const p = document.createElement('p');
     p.style.color = 'var(--text-dim)';
     p.textContent = 'No active alerts.';
@@ -676,7 +697,7 @@ function renderAlerts(healthData) {
   }
 
   let activeCount = 0;
-  for (const alert of data.alerts.slice(0, 10)) {
+  for (const alert of alerts.slice(0, 10)) {
     const sevCls = alert.severity === 'CRITICAL' ? 'alert-critical' :
                    alert.severity === 'WARNING' ? 'alert-warning' : 'alert-info';
     if (alert.severity === 'CRITICAL' || alert.severity === 'WARNING') activeCount++;
@@ -694,8 +715,7 @@ function renderAlerts(healthData) {
     strong.textContent = `[${alert.severity}]`;
     div.appendChild(strong);
 
-    const desc = alert.description || alert.code || 'Unknown alert';
-    div.appendChild(document.createTextNode(' ' + desc));
+    div.appendChild(document.createTextNode(' ' + alert.text));
     container.appendChild(div);
   }
   return activeCount;

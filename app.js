@@ -955,6 +955,14 @@ async function loadVehicleImage(vin) {
   const img = refs['vehicle-image'];
   if (!card || !img || !vin) return;
 
+  // Check cache first — image URL is VIN-based, doesn't change
+  const cachedUrl = getFromCache('vehicleImageUrl');
+  if (cachedUrl) {
+    img.src = cachedUrl;
+    card.style.display = '';
+    return;
+  }
+
   try {
     const resp = await fetch(`${API_BASE}/vehicle-image?vin=${vin}`, {
       headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'image/jpeg,image/png,image/webp,application/json,*/*' }
@@ -967,6 +975,7 @@ async function loadVehicleImage(vin) {
       const data = await resp.json();
       const url = data.vehicleImage || data.imageUrl || data.url;
       if (!url) throw new Error('No image URL in response');
+      saveToCache('vehicleImageUrl', url); // Cache for 5min so we don't re-fetch
       img.src = url;
       card.style.display = '';
     } else {

@@ -97,39 +97,40 @@ export default {
         const vin = url.searchParams.get('vin');
         if (!vin) return json(env, request, 400, { error: 'vin parameter is required' });
 
-        const imageUrl = FORD_BUILDER_URL.replace('[VIN]', vin);
+        // VIN needs brackets in the builder URL: Vin[1FT...] not Vin1FT...
+        const imageUrl = FORD_BUILDER_URL.replace('[VIN]', '[' + vin + ']');
         const imageResp = await fetch(imageUrl, {
           headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CellBlock/1.0)' }
         });
 
-        if (!imageResp.ok) {
-          // Fallback: try Ford's fcon-query API for the image URL
-          const auth = request.headers.get('authorization');
-          const fordResp = await fetch(`${FORD_DATA_BASE}/vehicle-image?vin=${vin}`, {
-            headers: { 'Authorization': auth || '', 'Accept': 'application/json' }
-          });
-          if (fordResp.ok) {
-            const data = await fordResp.json();
-            const fallbackUrl = data.vehicleImage;
-            if (fallbackUrl) {
-              const fallbackImg = await fetch(fallbackUrl, {
-                headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CellBlock/1.0)' }
-              });
-              if (fallbackImg.ok) {
-                const headers = new Headers(fallbackImg.headers);
-                headers.set('Cache-Control', 'public, max-age=86400'); // 24h edge cache
-                headers.set('Access-Control-Allow-Origin', '*');
-                return new Response(fallbackImg.body, { headers });
-              }
-            }
-          }
-          return json(env, request, imageResp.status === 429 ? 429 : 502, { error: 'Image unavailable' });
+        if (imageResp.ok) {
+          const headers = new Headers(imageResp.headers);
+          headers.set('Cache-Control', 'public, max-age=86400');
+          headers.set('Access-Control-Allow-Origin', '*');
+          return new Response(imageResp.body, { headers });
         }
 
-        const headers = new Headers(imageResp.headers);
-        headers.set('Cache-Control', 'public, max-age=86400'); // 24h edge cache
-        headers.set('Access-Control-Allow-Origin', '*');
-        return new Response(imageResp.body, { headers });
+        // Fallback: try Ford's fcon-query API for the image URL
+        const auth = request.headers.get('authorization');
+        const fordResp = await fetch(`${FORD_DATA_BASE}/vehicle-image?vin=${vin}`, {
+          headers: { 'Authorization': auth || '', 'Accept': 'application/json' }
+        });
+        if (fordResp.ok) {
+          const data = await fordResp.json();
+          const fallbackUrl = data.vehicleImage;
+          if (fallbackUrl) {
+            const fallbackImg = await fetch(fallbackUrl, {
+              headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CellBlock/1.0)' }
+            });
+            if (fallbackImg.ok) {
+              const headers = new Headers(fallbackImg.headers);
+              headers.set('Cache-Control', 'public, max-age=86400');
+              headers.set('Access-Control-Allow-Origin', '*');
+              return new Response(fallbackImg.body, { headers });
+            }
+          }
+        }
+        return json(env, request, 502, { error: 'Image unavailable' });
       }
 
       if (request.method === 'GET' && url.pathname.startsWith(DATA_PREFIX)) {

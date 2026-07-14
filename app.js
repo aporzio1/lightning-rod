@@ -594,14 +594,24 @@ function renderDashboard() {
   setEl('time-to-full', typeof timeToFull === 'number' && timeToFull > 0 ? `${Math.round(timeToFull)} min` : '-- min');
 
   // Battery health — use Ford's own xevBatteryPerformanceStatus plus a
-  // calculated percentage based on known design capacity. Ford's published
-  // Lightning extended-range pack is ~141 kWh total (131 kWh usable);
-  // standard-range is ~98 kWh usable. The reported xevBatteryCapacity tells
-  // us which pack it is, and the ratio vs design capacity estimates degradation.
+  // calculated percentage based on known design capacity. Uses VIN prefix
+  // to determine model and apply the correct factory spec.
   const perfStatus = m('xevBatteryPerformanceStatus');
   const capacity = m('xevBatteryCapacity');
-  // Extended range ~141 kWh total, standard range ~98 kWh usable (~105 total est)
-  const designCapacity = typeof capacity === 'number' && capacity > 110 ? 141 : 105;
+  
+  // Ford EV design capacities (total, not usable) by VIN prefix
+  const DESIGN_CAPACITY = {
+    '1FT': 141,   // F-150 Lightning ER; SR detected by capacity < 110
+    '3FM': 98,    // Mustang Mach-E ER; SR is ~75
+    '1FM': 76,    // E-Transit
+  };
+  const vinPrefix = (vinCache || '').slice(0, 3);
+  let designCapacity = DESIGN_CAPACITY[vinPrefix] || 100;
+  // For Lightning: if capacity is < 110 it's standard range (~105 kWh)
+  if (vinPrefix === '1FT' && typeof capacity === 'number' && capacity < 110) designCapacity = 105;
+  // For Mach-E: if capacity is < 85 it's standard range (~75 kWh)
+  if (vinPrefix === '3FM' && typeof capacity === 'number' && capacity < 85) designCapacity = 75;
+  
   const healthPct = typeof capacity === 'number' && capacity > 0
     ? Math.min(100, Math.round((capacity / designCapacity) * 100))
     : null;

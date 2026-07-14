@@ -380,8 +380,14 @@ async function refreshData() {
 // response for /garage, so this shape is a guess at common REST list
 // conventions. Verify against a real response and adjust if it's wrong.
 function firstVin(garage) {
-  const list = garage?.vehicles ?? garage?.data ?? garage;
-  return Array.isArray(list) ? (list[0]?.vin ?? null) : null;
+  // Confirmed live: a single-vehicle garage returns a flat object with `vin`
+  // directly on it (no array wrapper at all) — not the {vehicles:[...]} or
+  // {data:[...]} list shape we'd guessed. Handle both, in case a multi-vehicle
+  // garage responds with an actual array.
+  if (Array.isArray(garage)) return garage[0]?.vin ?? null;
+  if (Array.isArray(garage?.vehicles)) return garage.vehicles[0]?.vin ?? null;
+  if (Array.isArray(garage?.data)) return garage.data[0]?.vin ?? null;
+  return garage?.vin ?? null;
 }
 
 // Cheap loading feedback — pulse the primary readouts while a fetch is in flight

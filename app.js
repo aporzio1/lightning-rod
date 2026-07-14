@@ -144,8 +144,7 @@ function loadDemoData() {
           { vehicleDoor: 'REAR_LEFT', vehicleOccupantRole: 'PASSENGER', value: 'CLOSED' },
           { vehicleDoor: 'UNSPECIFIED_FRONT', vehicleOccupantRole: 'PASSENGER', value: 'CLOSED' },
           { vehicleDoor: 'REAR_RIGHT', vehicleOccupantRole: 'PASSENGER', value: 'CLOSED' },
-          { vehicleDoor: 'TAILGATE', vehicleOccupantRole: 'PASSENGER', value: 'CLOSED' },
-          { vehicleDoor: 'INNER_TAILGATE', vehicleOccupantRole: 'PASSENGER', value: 'CLOSED' }
+          { vehicleDoor: 'TAILGATE', vehicleOccupantRole: 'PASSENGER', value: 'CLOSED' }
         ]
       }
     },
@@ -745,6 +744,8 @@ function normalizeDoors(doorArray) {
     const key = `${entry.vehicleDoor}|${entry.vehicleOccupantRole}`;
     if (seen.has(key)) continue;
     seen.add(key);
+    // Skip inner tailgate — it's the step/work surface panel, not a separate door
+    if (entry.vehicleDoor === 'INNER_TAILGATE') continue;
     out.push({ label: doorLabel(entry), status: entry.value });
   }
   return out;

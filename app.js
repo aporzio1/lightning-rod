@@ -847,7 +847,11 @@ function renderWallbox(data) {
 
   // Expected shape: { wallbox: [{ wallboxId, status, ... }] } or flat object
   const wb = Array.isArray(data.wallbox) ? data.wallbox[0] : data;
-  if (!wb) { container.innerHTML = '<p class="unavailable-note">No wallbox configured.</p>'; return; }
+  // Empty object means no wallbox configured — show the note
+  if (!wb || Object.keys(wb).length === 0) {
+    container.innerHTML = '<p class="unavailable-note">No wallbox configured.</p>';
+    return;
+  }
 
   const fields = [
     ['Status', wb.status ?? wb.Status ?? '--'],
@@ -975,7 +979,7 @@ async function loadVehicleImage(vin) {
     }
   } catch (err) {
     console.warn('[vehicle-image]', err.message || err);
-    card.style.display = 'none';
+    // Keep card present (hidden) so layout doesn't shift on refresh
   }
 }
 

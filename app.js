@@ -374,7 +374,9 @@ async function refreshAccessToken() {
       saveRefreshToken(refreshToken, data.refresh_token_expires_in);
     } catch (err) {
       console.warn('[auth] Token refresh failed:', err.message);
-      logout();
+      // Don't log out — just show login screen and keep the token
+      // in case it works on a later attempt.
+      showLogin();
       throw err;
     } finally {
       refreshPromise = null;

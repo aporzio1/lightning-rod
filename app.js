@@ -599,17 +599,29 @@ function renderDashboard() {
   const perfStatus = m('xevBatteryPerformanceStatus');
   const capacity = m('xevBatteryCapacity');
   
-  // Ford EV design capacities (total, not usable) by VIN prefix
+  // Ford EV design capacities (total, not usable) by VIN prefix.
+  // These are reference points; if the reported capacity is significantly
+  // different (new model year / battery variant), we use the reported value
+  // as the baseline to avoid showing false degradation.
   const DESIGN_CAPACITY = {
-    '1FT': 141,   // F-150 Lightning ER; SR detected by capacity < 110
-    '3FM': 98,    // Mustang Mach-E ER; SR is ~75
+    '1FT': 141,   // F-150 Lightning ER (pre-2025: 131kWh usable / ~141 total)
+                   // 2025+ Flash: 123 kWh usable / ~132 total — handled by tolerance below
+    '3FM': 98,    // Mustang Mach-E ER
     '1FM': 76,    // E-Transit
   };
   const vinPrefix = (vinCache || '').slice(0, 3);
   let designCapacity = DESIGN_CAPACITY[vinPrefix] || 100;
-  // For Lightning: if capacity is < 110 it's standard range (~105 kWh)
+  // If reported capacity differs from known spec by >5%, assume a different
+  // battery variant and use the reported value as the baseline (no degradation calc)
+  if (typeof capacity === 'number' && capacity > 0) {
+    const ratio = capacity / designCapacity;
+    if (ratio < 0.95 || ratio > 1.05) {
+      designCapacity = Math.round(capacity); // different battery, treat as baseline
+    }
+  }
+  // Lightning SR detection: capacity well below ER spec
   if (vinPrefix === '1FT' && typeof capacity === 'number' && capacity < 110) designCapacity = 105;
-  // For Mach-E: if capacity is < 85 it's standard range (~75 kWh)
+  // Mach-E SR detection
   if (vinPrefix === '3FM' && typeof capacity === 'number' && capacity < 85) designCapacity = 75;
   
   const healthPct = typeof capacity === 'number' && capacity > 0

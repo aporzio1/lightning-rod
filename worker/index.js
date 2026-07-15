@@ -120,7 +120,7 @@ export default {
 
         const imageUrl = FORD_BUILDER_URL.replace('[VIN]', '[' + vin + ']');
         const imageResp = await fetch(imageUrl, {
-          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CellBlock/1.0)' }
+          headers: { 'User-Agent': 'curl/8.4.0' }
         });
 
         if (imageResp.ok) {
@@ -139,7 +139,7 @@ export default {
           const fallbackUrl = data.vehicleImage;
           if (fallbackUrl) {
             const fallbackImg = await fetch(fallbackUrl, {
-              headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CellBlock/1.0)' }
+              headers: { 'User-Agent': 'curl/8.4.0' }
             });
             if (fallbackImg.ok) {
               const headers = new Headers(fallbackImg.headers);

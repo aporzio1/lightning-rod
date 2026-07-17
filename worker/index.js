@@ -17,6 +17,7 @@ const FORD_TOKEN_URL = 'https://api.vehicle.ford.com/dah2vb2cprod.onmicrosoft.co
 const FORD_DATA_BASE = 'https://api.vehicle.ford.com/fcon-query/v1';
 const FORD_BUILDER_URL = 'https://build.ford.com/dig/direct/HD-FULL/Vin[VIN]/EXT/4/vehicle.png';
 const DATA_PREFIX = '/api/data/';
+const REGISTERED_REDIRECT_URI = 'https://cellblock.cc/';
 
 function corsHeaders(env, request) {
   const allowed = (env.ALLOWED_ORIGIN || '*').split(',').map(o => o.trim());
@@ -30,17 +31,16 @@ function corsHeaders(env, request) {
   };
 }
 
-// Server-side origin enforcement: reject requests from non-allowed origins
-// (not just CORS headers — actual 403 for curl/bots too).
-// Browser-initiated fetches always send Origin; curl/CLI clients won't have one,
-// which is fine since only the CellBlock frontend should hit these endpoints.
+// Server-side origin enforcement rejects explicit origins that are not allowed.
+// Native URLSession requests have no Origin header; their route-specific
+// credential checks below remain mandatory.
 function enforceOrigin(env, request) {
-  const allowed = (env.ALLOWED_ORIGIN || '').split(',').map(o => o.trim()).filter(Boolean);
-  if (allowed.length === 0 || allowed.includes('*')) return null; // wide open
-  const origin = request.headers.get('origin');
-  if (!origin || !allowed.includes(origin)) {
-    return { error: 'Forbidden: origin not allowed' };
-  }
+    const allowed = (env.ALLOWED_ORIGIN || '').split(',').map(o => o.trim()).filter(Boolean);
+    if (allowed.length === 0 || allowed.includes('*')) return null; // wide open
+    const origin = request.headers.get('origin');
+    if (origin && !allowed.includes(origin)) {
+        return { error: 'Forbidden: origin not allowed' };
+    }
   return null;
 }
 
@@ -79,7 +79,9 @@ export default {
     const scope = `${env.CLIENT_ID} offline_access openid`;
 
     try {
-      // Enforce origin on auth/token/data endpoints (vehicle-image is proxied separately)
+      // Enforce browser origins on auth/token/data endpoints. Native requests
+      // have no Origin header and are admitted only after their credentials are
+      // validated by the matching route below.
       if (url.pathname !== DATA_PREFIX + 'vehicle-image') {
         const blocked = enforceOrigin(env, request);
         if (blocked) return json(env, request, 403, blocked);
@@ -88,6 +90,9 @@ export default {
       if (request.method === 'POST' && url.pathname === '/api/token') {
         const { code, redirect_uri } = await request.json().catch(() => ({}));
         if (!code || !redirect_uri) return json(env, request, 400, { error: 'code and redirect_uri are required' });
+        if (redirect_uri !== REGISTERED_REDIRECT_URI) {
+          return json(env, request, 400, { error: 'Invalid redirect_uri' });
+        }
 
         return exchangeToken(env, request, {
           grant_type: 'authorization_code',
@@ -102,11 +107,14 @@ export default {
       if (request.method === 'POST' && url.pathname === '/api/refresh') {
         const { refresh_token, redirect_uri } = await request.json().catch(() => ({}));
         if (!refresh_token) return json(env, request, 400, { error: 'refresh_token is required' });
+        if (redirect_uri !== REGISTERED_REDIRECT_URI) {
+          return json(env, request, 400, { error: 'Invalid redirect_uri' });
+        }
 
         return exchangeToken(env, request, {
           grant_type: 'refresh_token',
           refresh_token,
-          redirect_uri: redirect_uri || '',
+          redirect_uri,
           client_id: env.CLIENT_ID,
           client_secret: env.CLIENT_SECRET,
           scope

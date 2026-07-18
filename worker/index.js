@@ -1,3 +1,5 @@
+import { DurableObject } from 'cloudflare:workers';
+
 // Lightning Rod token/data proxy — Cloudflare Worker port of server/index.js.
 //
 // Same three jobs as the Node version (see server/index.js for the full
@@ -24,8 +26,10 @@ const FORD_REQUEST_INTERVAL_MS = 30_000;
 // separate browser tabs. The Worker stores only a SHA-256 digest, never the
 // token itself. A token refresh creates a new limiter identity, while the
 // browser queue prevents an immediate same-tab burst during that transition.
-export class FordRateLimiter {
+// Extending DurableObject is required for `stub.allow()` / `stub.defer()` RPC.
+export class FordRateLimiter extends DurableObject {
   constructor(ctx, env) {
+    super(ctx, env);
     this.ctx = ctx;
     this.env = env;
   }
